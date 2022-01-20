@@ -1,0 +1,139 @@
+---
+title: "EDS241: Assignment 1"
+author: "Charles Hendrickson"
+date: '`r format(Sys.time(), "%m/%d/%Y")`'
+output: 
+  pdf_document:
+    toc: false
+    number_sections: yes
+header-includes:
+  - \setlength{\parindent}{1em}
+  - \usepackage{float}
+--- 
+  
+``` {r setup, echo = FALSE, message = FALSE, warning = FALSE}
+
+# set default chunk options
+knitr::opts_chunk$set(fig.width = 4, fig.height = 3, 
+                      echo = TRUE, message = FALSE, warning = FALSE)
+
+
+# load packages
+packages=c("stargazer", "here", "tidyr", "dplyr","stringr", "janitor", 
+           "cowplot", "ggplot2", "tinytex", "datasets", "tibble", "openxlsx", "estimator")
+
+for (i in packages) {
+  if (require(i,character.only=TRUE)==FALSE) {
+    install.packages(i,repos='http://cran.us.r-project.org')
+  }
+  else {
+    require(i,character.only=TRUE)
+  }
+}
+
+#devtools::install_github('rstudio/rmarkdown')
+options(scipen=999) # not scientific notation
+
+
+```
+
+
+```{r , include=TRUE}
+
+# Load the CalEnviroScreen 4.0 data from the California Office of Environmental Health Hazards Assessment (OEHHA).
+
+mydata <- read.xlsx("data/CES4.xlsx")
+
+# Select the specific columns we will be using in our analysis. 
+
+mydata <- mydata %>%
+  select("Census.Tract", "Total.Population", "California.County", "Low.Birth.Weight", "PM2.5", "Poverty")
+
+# omit all NA values from the dataset
+
+mydata <- na.omit(mydata)
+
+```
+
+\noindent (a) What is the average concentration of PM2.5 across all census tracts in California?
+
+```{r}
+pm2.5_avg <- mydata %>%
+  summarise(pm2.5_avg = mean(PM2.5))
+
+print(pm2.5_avg)
+```
+
+\noindent (b) What county has the highest level of poverty in California?
+
+```{r}
+# Find the mean poverty level per county
+county_poverty_means <- mydata %>%
+  group_by(California.County) %>%
+  summarise(mean_poverty = mean(Poverty))
+  
+# Find the maximum mean poverty level
+max(county_poverty_means$mean_poverty)
+
+# Filter for the county with the max mean poverty level of 51.45584
+max_poverty <- county_poverty_means %>% 
+  filter(mean_poverty >= 51.45584) %>% 
+  summarise(California.County)
+
+print(max_poverty)
+
+```
+
+\noindent (c) Make a histogram depicting the distribution of percent low birth weight and PM2.5.
+
+```{r}
+# Histogram for PM2.5 levels
+ggplot(data = mydata, aes(x= PM2.5)) +
+  geom_histogram() +
+  labs(title = "Distribution of Annual Mean PM2.5 Levels for California Census Tract",
+       x = "PM2.5 level",
+       y = "Count") +
+  theme_classic()
+```
+
+```{r}
+# Histogram for percent low birth weight
+ggplot(data = mydata, aes(x = Low.Birth.Weight)) +
+  geom_histogram() +
+  labs(title = "Distribution of Percent Low Birth Weight for California Census Tract",
+       x = "Percent Low Birth Weight (%)",
+       y = "Count") +
+  theme_classic()
+```
+
+\noindent (d) Estimate a OLS regression of LowBirthWeight on PM25. Report the estimated slope coefficient and its heteroskedasticity-robust standard error. Interpret the estimated slope coefficient. Is the effect of PM25 on LowBirthWeight statistically significant at the 5%?
+
+**The estimated slope coefficient is 0.118162. This means that for every one unit increase in PM2.5 levels, there is a 0.118162 percent increase in the percentage of low birth weights for the California census tract.**
+
+**The standard error is 0.008334**
+
+**The effect of PM25 on LowBirthWeight is statistically significant at the 5% level becuase our p-value is much lower than 0.05.**
+
+
+```{r}
+regression_results <- summary(lm(Low.Birth.Weight ~ PM2.5, data = mydata))
+
+regression_results
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

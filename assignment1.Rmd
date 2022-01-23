@@ -43,24 +43,29 @@ options(scipen=10) # not scientific notation
 
 ```{r , include=TRUE}
 
-# Load the CalEnviroScreen 4.0 data from the California Office of Environmental Health Hazards Assessment (OEHHA).
+# Load the CalEnviroScreen 4.0 data from the California Office of Environmental Health Hazards Assessment (OEHHA)
 
 mydata <- read.xlsx("data/CES4.xlsx")
 
-# Select the specific columns we will be using in our analysis. 
+# Select the specific columns we will be using in our analysis 
 
 mydata <- mydata %>%
   select("Census.Tract", "Total.Population", "California.County", "Low.Birth.Weight", "PM2.5", "Poverty")
 
-# omit all NA values from the dataset
+# Omit all NA values from the dataset
 
 mydata <- na.omit(mydata)
 
 ```
 
+```{r}
+# Summary statistics
+stargazer(mydata, type = "text", digits = 1)
+```
+
 \noindent (a) What is the average concentration of PM2.5 across all census tracts in California?
 
-**The average concentration of PM2.5 across all census tracts in California is 10.19529** 
+**The average concentration of PM2.5 across all census tracts in California is 10.19529 micrograms per cubic meter of air.** 
 
 ```{r}
 pm2.5_avg <- mydata %>%
@@ -71,7 +76,7 @@ print(pm2.5_avg)
 
 \noindent (b) What county has the highest level of poverty in California?
 
-**Tulare county has the highest level of poverty in California**
+**Tulare county has the highest level of poverty in California.**
 
 ```{r}
 # Find the mean poverty level per county
@@ -80,13 +85,14 @@ county_poverty_means <- mydata %>%
   summarise(mean_poverty = mean(Poverty))
   
 # Find the highest mean poverty level out of all California counties
-max(county_poverty_means$mean_poverty)
+max_mean_poverty <- max(county_poverty_means$mean_poverty)
 
-# Filter for the county with the max mean poverty level of 51.45584
+# Filter for the county with the max mean poverty level
 max_poverty <- county_poverty_means %>% 
-  filter(mean_poverty >= 51.45584) %>% 
+  filter(mean_poverty >= max_mean_poverty) %>% 
   summarise(California.County)
 
+# Print the name of the county with the max mean poverty level
 print(max_poverty)
 
 ```
@@ -97,8 +103,9 @@ print(max_poverty)
 # Histogram for PM2.5 levels
 ggplot(data = mydata, aes(x= PM2.5)) +
   geom_histogram() +
-  labs(title = "Distribution of Annual Mean PM2.5 Levels for California Census Tract",
-       x = "PM2.5 level",
+  labs(title = "Distribution of Annual Mean PM2.5 Levels 
+       Across all California Census Tracts",
+       x = "PM2.5 level (micrograms per cubic meter of air)",
        y = "Count") +
   theme_classic()
 ```
@@ -107,7 +114,8 @@ ggplot(data = mydata, aes(x= PM2.5)) +
 # Histogram for percent low birth weight
 ggplot(data = mydata, aes(x = Low.Birth.Weight)) +
   geom_histogram() +
-  labs(title = "Distribution of Percent Low Birth Weight for California Census Tract",
+  labs(title = "Distribution of Percent Low Birth Weight 
+       Across all California Census Tracts",
        x = "Percent Low Birth Weight (%)",
        y = "Count") +
   theme_classic()
@@ -115,36 +123,53 @@ ggplot(data = mydata, aes(x = Low.Birth.Weight)) +
 
 \noindent (d) Estimate a OLS regression of LowBirthWeight on PM25. Report the estimated slope coefficient and its heteroskedasticity-robust standard error. Interpret the estimated slope coefficient. Is the effect of PM25 on LowBirthWeight statistically significant at the 5%?
 
-**The estimated slope coefficient for PM2.5 is 0.118162. This means that for every one unit increase in PM2.5 levels, there is a 0.118162 percent increase in the percentage of low birth weights for the California census tract.**
+**The estimated slope coefficient for PM2.5 is 0.1182. This means that for the California census tract, each additional unit of concentration of PM2.5 micrograms per cubic meter of air increases the percentage of low birth weights by 0.1182 percent on average.**
 
-**The standard error is 0.008334**
+**The standard error is 0.008401** 
 
-**The effect of PM2.5 on LowBirthWeight is statistically significant at the 5% level becuase our p-value is much lower than 0.05.**
+**The effect of PM2.5 on LowBirthWeight is statistically significant at the 5% level becuase our p-value is 2.2e-16, which is much lower than 0.05.**
 
 ```{r}
-model_1 <- summary(lm_robust(Low.Birth.Weight ~ PM2.5, data = mydata))
+# OLS regression of Low.Birth.Weight on PM2.5
+model_1 <- lm_robust(Low.Birth.Weight ~ PM2.5, data = mydata)
 
-model_1
+summary(model_1)
+```
+
+```{r}
+# Plot of OLS Regression of Low Birth Weight on PM2.5
+ggplot(mydata, aes(x = PM2.5, y = Low.Birth.Weight)) +
+  geom_point(size = 2, color = "black") +
+  labs(title = "OLS Regression of Low Birth Weight on PM2.5",
+       x = "PM2.5 level (micrograms per cubic meter of air)",
+       y = "Percent Low Birth Weight (%)") +
+  ggthemes::theme_pander(base_size =
+14) + geom_abline(intercept = 3.7996,
+slope = 0.1182, size=1.5, color="red")
+
 ```
 
 \noindent (f) Add the variable Poverty as an explanatory variable to the regression in (d).Interpret the estimated coefficient on Poverty. What happens to the estimated coefficient on PM25, compared to the regression in (d). Explain.
 
-**The estimated coefficient on Poverty is 0.02744. This means that for every one unit increase in poverty (the percent of population living below two times the federal poverty level), there is a 0.02744 percent increase in the percentage of low birth weights for the California census tract.** 
+**The estimated slope coefficient on Poverty is 0.02744. This means that for the California census tract, each additional unit of poverty (the percent of population living below two times the federal poverty level) increases the percentage of low birth weights by 0.02744 on average.** 
 
-**The estimated coefficient on PM2.5 decreased to 0.05911 compared to 0.1182 in part (d).** 
-
+**In the multiple regression, the estimated slope coefficient on PM2.5 decreased from 0.1182 in part (d) to 0.05911. To explain this change, we can speculate that the true Beta2 is a positive value due to our regression showing us that poverty is positively correlated with the percentage of low birth weights. Due to omitted variables bias, when we omit the effect of poverty on the percentage of low birth weights in model_1, the regression gives that effect to PM2.5 levels, which overstates PM2.5's effect on the percentage of low birth weights and inflates the value of PM2.5's estimated slope coefficient. Thus, we observe the estimated slope coefficient for PM2.5 decrease when the poverty variable is included in model_2.** 
 
 ```{r}
-model_2 <- summary(lm_robust(Low.Birth.Weight ~ PM2.5 + Poverty, data = mydata))
+model_2 <- lm_robust(Low.Birth.Weight ~ PM2.5 + Poverty, data = mydata)
 
 model_2
-
 ```
 
 \noindent (g) From the regression in (f), test the null hypothesis that the effect of PM2.5 is equal to the effect of Poverty
 
+**We reject the null hypothesis that BetaPM2.5 = BetaPoverty because the p-value is 0.0002426, which is much smaller than the 0.05. Also the t value for PM2.5 and Poverty is very different from eachother, which supports our rejection of the null hypothesis.**
+
 ```{r}
-linearHypothesis(model_2,c("PM2.5=0", "Poverty=0"), white.adjust = "hc2")
+# 
+linearHypothesis(model = model_2,
+                 hypothesis.matrix = c("PM2.5 = Poverty"), 
+                 white.adjust = "hc2")
 ```
 
 
